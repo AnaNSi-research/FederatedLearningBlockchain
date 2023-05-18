@@ -1,0 +1,16 @@
+{
+  "accounts": [
+    {
+      "username": "Alpha",
+      "password": "foo" 
+    },
+    {
+      "username": "Beta",
+      "password": "bar" 
+    },
+    {
+      "username": "Gamma",
+      "password": "baz" 
+    }
+  ]
+}
