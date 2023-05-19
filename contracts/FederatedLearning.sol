@@ -11,10 +11,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract FederatedLearning is Ownable {
     using SafeMathChainlink for uint256;
     enum FL_STATE {
-        CLOSED,
+        CLOSE,
         OPEN,
         START,
         LEARNING
+        //ABORT
     }
     FL_STATE public fl_state;
     address[] public collaborators;
@@ -23,25 +24,21 @@ contract FederatedLearning is Ownable {
     bytes public aggregated_weights;
     bytes[] public weights;
 
-    /*
-    uint public timeoutDuration = 570; // Timeout duration in seconds
-    uint public timeoutStart; // Timestamp when the timeout starts
-    bool public isTimeoutStarted = false; // Flag indicating whether the timeout has started
-    */
-
     mapping(address => mapping(string => bool)) public hasCalledFunction; // only once
     mapping(string => uint) public everyoneHasCalled; // for all
 
-    event ChangeState(string old_state, string new_state);
+    //event ChangeState(string old_state, string new_state);
+    event StartState();
+    event LearningState();
+    event CloseState();
     event EveryCollaboratorhasCalledOnlyOnce(string functionName);
     event AggregatedWeightsReady();
-    // event TimeoutExpired(string functionName);
 
     // if you're following along with the freecodecamp video
     // Please see https://github.com/PatrickAlphaC/fund_me
     // to get the starting solidity contract code, it'll be slightly different than this!
     constructor() public {
-        fl_state = FL_STATE.CLOSED;
+        fl_state = FL_STATE.CLOSE;
     }
 
     modifier onlyAuthorized() {
@@ -73,29 +70,10 @@ contract FederatedLearning is Ownable {
         return false;
     }
 
-    /*
-    function startTimeout() public onlyOwner {
-        require(!isTimeoutStarted, "Timeout has already been started");
-        timeoutStart = block.timestamp;
-        isTimeoutStarted = true;
-    }
-
-    function checkTimeout(string memory phase) public onlyOwner {
-        require(isTimeoutStarted, "Timeout has not been started yet");
-        require(block.timestamp >= timeoutStart + timeoutDuration, "Timeout has not expired yet");
-        isTimeoutStarted = false;
-        emit TimeoutExpired(phase);
-    }
-
-    function resetTimeout() public onlyOwner {
-        isTimeoutStarted = false;
-    }
-    */
-
     function open() public onlyOwner {
-        require(fl_state == FL_STATE.CLOSED);
+        require(fl_state == FL_STATE.CLOSE);
         fl_state = FL_STATE.OPEN;
-        emit ChangeState("CLOSED", get_state());
+        // emit ChangeState("CLOSE", get_state());
     }
 
     function add_collaborator(address _collaborator) public onlyOwner {
@@ -116,7 +94,8 @@ contract FederatedLearning is Ownable {
     function start() public onlyOwner {
         require(fl_state == FL_STATE.OPEN);
         fl_state = FL_STATE.START;
-        emit ChangeState("OPEN", get_state());
+        //emit ChangeState("OPEN", get_state());
+        emit StartState();
     }
 
     function retrieve_model() public onlyAuthorized everyCollaboratorHasCalledOnce("retrieve_model") returns (bytes memory){
@@ -132,7 +111,8 @@ contract FederatedLearning is Ownable {
     function learning() public onlyOwner {
         require(fl_state == FL_STATE.START);
         fl_state = FL_STATE.LEARNING;
-        emit ChangeState("START", get_state());
+        //emit ChangeState("START", get_state());
+        emit LearningState();
     }
 
     function send_weights(bytes memory _weights) public onlyAuthorized everyCollaboratorHasCalledOnce("send_weights"){
@@ -176,14 +156,15 @@ contract FederatedLearning is Ownable {
     }
 
     function close() public onlyOwner {
-        require(fl_state == FL_STATE.LEARNING);
-        fl_state = FL_STATE.CLOSED;
-        emit ChangeState("LEARNING", get_state());
+        //require(fl_state == FL_STATE.LEARNING);
+        fl_state = FL_STATE.CLOSE;
+        //emit ChangeState("LEARNING", get_state());
+        emit CloseState();
     }
 
 
     function get_state() public view returns (string memory) {
-        if (fl_state == FL_STATE.CLOSED) return "CLOSED";
+        if (fl_state == FL_STATE.CLOSE) return "CLOSE";
         if (fl_state == FL_STATE.OPEN) return "OPEN";
         if (fl_state == FL_STATE.START) return "START";
         if (fl_state == FL_STATE.LEARNING) return "LEARNING";

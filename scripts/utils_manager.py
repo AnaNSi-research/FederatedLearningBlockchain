@@ -17,7 +17,6 @@ from tensorflow.keras.layers import (
 import numpy as np
 import json
 from utils_simulation import RANDOM_SEED
-from hospitals import get_X_test, get_y_test
 
 
 WIDTH = 176

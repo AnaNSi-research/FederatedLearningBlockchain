@@ -60,7 +60,8 @@ federated_learning = FederatedLearning[-1]
 contractEvents = federated_learning.events
 contractEvent = network.contract.ContractEvents(network.contract.Contract(federated_learning.address))
 
-async def changeState_alert(event):
+"""
+def changeState_alert(event):
     print("LOLOLOLOLOLOLO", event["args"]["new_state"])
     #print("LOLOLOLOLOLOLO", event)
     match event["args"]["new_state"]:
@@ -80,7 +81,6 @@ async def changeState_alert(event):
             print("ERROR")
     print(event)
 
-
 async def aggregatedWeightsReady_alert(event):
     for hospital_name in hospitals:
         retrieving_aggreagted_weights(hospital_name, federated_learning, client)
@@ -93,17 +93,19 @@ async def aggregatedWeightsReady_alert(event):
         print(type(coroutine_AW))
         await coroutine_AW
 
-        """
+        
         # await for CLOSE
         coroutine_close = contractEvent.listen("ChangeState")
         print(coroutine_close)
         print(type(coroutine_close))
         await coroutine_close
-        """
-
+"""
+        
+def closeState_alert(event):
+    print("The FL process has been CLOSED!!")
+    exit()
 
 def start_event():
-    print(hospitals)
     """ The collaborators download model and compile information from the blockchain """
     for hospital_name in hospitals:
         # model
@@ -134,6 +136,12 @@ def start_event():
 def learning_event():
     """ Execution of fedederating learning rounds """
     for hospital_name in hospitals:
+        fitting(hospital_name)
+        loading_weights(hospital_name, federated_learning, client)
+
+def aggregatedWeightsReady_event():
+    for hospital_name in hospitals:
+        retrieving_aggreagted_weights(hospital_name, federated_learning, client)
         fitting(hospital_name)
         loading_weights(hospital_name, federated_learning, client)
         
@@ -210,39 +218,46 @@ def retrieving_aggreagted_weights(_hospital_name, _fl_contract, client):
 
 async def main():
     
+    """
     # only with fl-local network
     for idx, hospital_name in enumerate(hospitals, start=1):
         hospitals[hospital_name].address = accounts[idx]
         print(idx, hospitals[hospital_name].address)
+    """
 
     #contractEvent.subscribe("ChangeState", changeState_alert, delay=0.5)
     #contractEvent.subscribe("AggregatedWeightsReady", aggregatedWeightsReady_alert, delay=0.5)
+    contractEvent.subscribe("CloseState", closeState_alert, delay=0.5)
 
+    """
     # await for OPEN
     coroutine_open = contractEvent.listen("ChangeState")
     print("COROUTINE: waiting OPEN\n", coroutine_open)
     await coroutine_open
     print("I waited OPEN\n_____________________________________")
+    """
     
     #await for START
-    coroutine_start = contractEvent.listen("ChangeState")
+    coroutine_start = contractEvent.listen("StartState")
     print("COROUTINE: waiting START\n", coroutine_start)
     await coroutine_start
     print("I waited START\n_____________________________________")
     start_event()
     
     #await for LEARNING
-    coroutine_learning = contractEvent.listen("ChangeState")
+    coroutine_learning = contractEvent.listen("LearningState")
     print("COROUTINE: waiting LEARNING\n", coroutine_learning)
     await coroutine_learning
     print("I waited LEARNING\n_____________________________________")
     learning_event()
 
-
-
-
-    print("END")
-
+    while True:
+        # await for send_aggreagted_weights
+        coroutine_AW = contractEvent.listen("AggregatedWeightsReady")
+        print("COROUTINE: waiting send_aggreagted_weights\n", coroutine_AW)
+        await coroutine_AW
+        print("I waited send_aggreagted_weights\n_____________________________________")
+        aggregatedWeightsReady_event()
 
 
 asyncio.run(main())

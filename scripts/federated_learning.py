@@ -42,6 +42,10 @@ multiprocessing.set_start_method('spawn', force=True)
 
 from helpful_scripts import get_account
 from utils_manager import *
+from utils_simulation import get_X_test, get_y_test
+
+import tracemalloc
+tracemalloc.start()
 
 client = ipfshttpclient.connect()
 federated_learning = FederatedLearning[-1]
@@ -65,19 +69,6 @@ timers = {}
 m_evalu = {}
 round = 0
 
-def startTimeout(phase):
-    print("PRE_START", timers)
-    timers[phase] = Timer(TIMEOUT_SECONDS, timeoutExpired_alert, args=[phase])
-    timers[phase].start()
-    print("POST_START", timers)
-
-def deleteTimeout(phase):
-    print("PRE_DELETE", timers)
-    timers[phase].cancel()
-    timers.pop(phase)
-    print("POST_DELETE", timers)
-
-
 async def everyCollaboratorhasCalledOnlyOnce_alert(event):
     print("EVERYEVERYEVERYEVERY")
     match event["args"]["functionName"]:
@@ -88,8 +79,6 @@ async def everyCollaboratorhasCalledOnlyOnce_alert(event):
             print(type(coroutine_RCI))
             await coroutine_RCI
         case "retrieve_compile_info":
-            deleteTimeout("start")
-            startTimeout("learning")
             """ Starting the federating learning """
             # print(federated_learning.get_state())
             learning_tx = federated_learning.learning({"from": manager})
@@ -115,7 +104,6 @@ async def everyCollaboratorhasCalledOnlyOnce_alert(event):
                 await coroutine_RAW
             else:
                 # print(federated_learning.get_state())
-                startTimeout("close")
                 close_tx = federated_learning.close({"from": manager})
                 close_tx.wait(1)
                 print(close_tx.events)
@@ -131,23 +119,18 @@ async def everyCollaboratorhasCalledOnlyOnce_alert(event):
         case _:
             print("ERROR")
 
+def retrieve_compile_info_event():
+    # print(federated_learning.get_state())
+    learning_tx = federated_learning.learning({"from": manager})
+    learning_tx.wait(1)
+    print(learning_tx.events)
+    # print(federated_learning.get_state())
 
-def timeoutExpired_alert(phase):
-    match phase:
-        case "start":
-            """ Starting the federating learning """
-            # print(federated_learning.get_state())
-            learning_tx = federated_learning.learning({"from": manager})
-            learning_tx.wait(1)
-            print(learning_tx.events)
-            # print(federated_learning.get_state())
-            startTimeout("learning")
-        case "learning":
-            manager_weights(federated_learning, manager, client)
-        case "send_aggregated_weights":
-            manager_weights(federated_learning, manager, client)
-        case _:
-            print("ERROR")
+def assert_coroutine_result(_coroutine_result, _function_name):
+    if _coroutine_result.event_data.args.functionName == _function_name:
+        print(f"The event \"{_function_name}\" has been correctly catched")
+    else:
+        raise Exception("ERROR: event \"", _function_name, "\" not catched")
 
 def manager_weights(_fl_contract, _manager, client):
     retreived_weights_hash = _fl_contract.retrieve_weights({"from": _manager})
@@ -241,7 +224,7 @@ def manager_weights(_fl_contract, _manager, client):
             res["Hash"].encode("utf-8"), {"from": _manager}
         )
     )
-    startTimeout("send_aggregated_weights")
+
 
 async def main():
     # client = ipfshttpclient.connect()
@@ -249,15 +232,8 @@ async def main():
     # federated_learning = FederatedLearning[-1]
 
     #contractEvent.subscribe("ChangeState", changeState_alert, delay=0.5)
-    contractEvent.subscribe("EveryCollaboratorhasCalledOnlyOnce", everyCollaboratorhasCalledOnlyOnce_alert, delay=0.5)
+    #contractEvent.subscribe("EveryCollaboratorhasCalledOnlyOnce", everyCollaboratorhasCalledOnlyOnce_alert, delay=0.5)
     #contractEvent.subscribe("AggregatedWeightsReady", aggregatedWeightsReady_alert, delay=0.5)
-    #contractEvents.subscribe("TimeoutExpired", timeoutExpired_alert, delay=0.0)
-
-    """
-    eventWatcher.add_event_callback(web3_contract.events.ChangeState(), changeState_alert, delay=0.5)
-    eventWatcher.add_event_callback(web3_contract.events.EveryCollaboratorhasCalledOnlyOnce(), everyCollaboratorhasCalledOnlyOnce_alert, delay=0.5)
-    eventWatcher.add_event_callback(web3_contract.events.AggregatedWeightsReady(), aggregatedWeightsReady_alert, delay=0.5)
-    """
 
     # model = create_model((HEIGHT, WIDTH, DEPTH), NUM_CLASSES)
 
@@ -278,24 +254,63 @@ async def main():
 
     """ Retrieving of the model """
     # print(federated_learning.get_state())
-    startTimeout("start")
     start_tx = federated_learning.start({"from": manager})
     start_tx.wait(1)
     print(start_tx.events)
     # print(federated_learning.get_state())
 
-    # await for retrieve_model
-    coroutine_RM = contractEvent.listen("EveryCollaboratorhasCalledOnlyOnce")
-    print(coroutine_RM)
-    print(type(coroutine_RM))
-    await coroutine_RM
+
+    #await for retrieve_model
+    coroutine_RM = contractEvent.listen("EveryCollaboratorhasCalledOnlyOnce", timeout=TIMEOUT_SECONDS)
+    print("COROUTINE: waiting retrieve_model\n", coroutine_RM)
+    coroutine_result_PM = await coroutine_RM
+    assert_coroutine_result(coroutine_result_PM, "retrieve_model")
+    print("I waited retrieve_model\n_____________________________________")
+    
+    #await for retrieve_compile_info
+    coroutine_RCI = contractEvent.listen("EveryCollaboratorhasCalledOnlyOnce", timeout=TIMEOUT_SECONDS)
+    print("COROUTINE: waiting retrieve_compile_info\n", coroutine_RCI)
+    coroutine_result_RCI = await coroutine_RCI
+    assert_coroutine_result(coroutine_result_RCI, "retrieve_compile_info")
+    print("I waited retrieve_compile_info\n_____________________________________")
+    retrieve_compile_info_event()
+
+    # await for send_weights
+    coroutine_SW = contractEvent.listen("EveryCollaboratorhasCalledOnlyOnce", timeout=TIMEOUT_SECONDS)
+    print("COROUTINE: waiting send_weights\n", coroutine_SW)
+    coroutine_result_SW = await coroutine_SW
+    assert_coroutine_result(coroutine_result_SW, "send_weights")
+    print("I waited send_weights\n_____________________________________")
+    # send_weights_event()
+
+    for round in range(NUM_ROUNDS):
+        manager_weights(federated_learning, manager, client)
+
+        # await for retrieve_aggregated_weights
+        coroutine_RAW = contractEvent.listen("EveryCollaboratorhasCalledOnlyOnce", timeout=TIMEOUT_SECONDS)
+        print("COROUTINE: waiting retrieve_aggregated_weights\n", coroutine_RAW)
+        coroutine_result_RAW = await coroutine_RAW
+        assert_coroutine_result(coroutine_result_RAW, "retrieve_aggregated_weights")
+        print("I waited retrieve_aggregated_weights\n_____________________________________")
+
+        # await for send_weights
+        coroutine_SW = contractEvent.listen("EveryCollaboratorhasCalledOnlyOnce", timeout=TIMEOUT_SECONDS)
+        print("COROUTINE: waiting send_weights\n", coroutine_SW)
+        coroutine_result_SW = await coroutine_SW
+        assert_coroutine_result(coroutine_result_SW, "send_weights")
+        print("I waited send_weights\n_____________________________________")
+        
+    # print(federated_learning.get_state())
+    close_tx = federated_learning.close({"from": manager})
+    close_tx.wait(1)
+    print(close_tx.events)
+    # print(federated_learning.get_state())
+
 
     # time.sleep(120)
     print("END")
 
     """
-    
-
     # EVENTO DA PARTE DEI COLLABORATORI: IL LEARNING PUò INIZIARE
 
     #Closing the blockchain 
@@ -311,7 +326,7 @@ async def main():
         print(evalu[h])
         print("----------------------------")
     print("MANAGER_EVAL:", m_evalu)
-
     """
+
 
 asyncio.run(main())
