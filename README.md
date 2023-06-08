@@ -9,6 +9,7 @@ different hospitals due to the different datasets they have.
 For this purpose the hospitals do not share and upload the datasets on the blockchain for two reasons:
 * security and privacy concernes
 * storage capacity issues
+
 Thus, they share just the model weights they obtain from each federated learning round. Then they upload the weights on the blockchain (actually the weights
 are store on IPFS and what is loaded in the blockchain is just the hash of the weights) that will be aggregated together and so on so forth.
 
