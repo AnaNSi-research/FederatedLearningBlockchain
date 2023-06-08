@@ -5,7 +5,7 @@ for the classification of MRI images of Alzheimer patients. It is based on the e
 and not with different model instances and then just averaging together the scores given as output by the last layer of the neural networks.
 This aims at reducing the **variance** and also the **bias** at the same time, increasing the capacity
 of the aggregated model to fit the training data and reducing at the same time the difference in performance of the different neural model instances of the 
-different hospitals due to the different datasets they have.
+hospitals due to the different datasets they have.
 For this purpose the hospitals do not share and upload the datasets on the blockchain for two reasons:
 * security and privacy concernes
 * storage capacity issues
