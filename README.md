@@ -18,12 +18,12 @@ This setup is just for a simulation
 * Ganache
 * IPFS
 * Miniconda
- * eth-brownie
- * cuda
- * tensorflow
- * opencv-python
- * pandas
- * scikit-learn
+ ** eth-brownie
+ ** cuda
+ ** tensorflow
+ ** opencv-python
+ ** pandas
+ ** scikit-learn
 
 ### base deactivate
 conda deactivate
