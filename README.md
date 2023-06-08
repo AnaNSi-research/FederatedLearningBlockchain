@@ -26,34 +26,34 @@ This setup is just for a simulation
   * scikit-learn
 
 ### base deactivate
-conda deactivate
+`conda deactivate`
 
 ### environment creation
-conda create --name blockchain_project python=3.9
+`conda create --name blockchain_project python=3.9`
 
 ### activation
-conda activate blockchain_project
+`conda activate blockchain_project`
 
 ### pip update
-python -m install pip --upgrade pip
+`python -m install pip --upgrade pip`
 
 ### cuda installation
-conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
+`conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0`
 
 ### tensorflow=2.10 installation
-pip install "tensorflow<2.11"
+`pip install "tensorflow<2.11"`
 
 ### opencv-python installation
-pip install opencv-python
+`pip install opencv-python`
 
 ### pandas installation
-pip install pandas==1.5.3
+`pip install pandas==1.5.3`
 
 ### eth-brownie installation
-pip install eth-brownie
+`pip install eth-brownie`
 
 ### scikit-learn installation
-pip install scikit-learn
+`pip install scikit-learn`
 
 ### ganache installation
 https://trufflesuite.com/ganache/
@@ -62,26 +62,23 @@ https://trufflesuite.com/ganache/
 https://github.com/ipfs/ipfs-desktop/releases
 
 ### add network brownie
-brownie networks add Ethereum fl-local host=http://127.0.0.1:7545 chainid=5777 timeout=3600
+`brownie networks add Ethereum fl-local host=http://127.0.0.1:7545 chainid=5777 timeout=3600`
 
 ### check network
-brownie networks list
+`brownie networks list`
 
 ### setup first time
-brownie run .\scripts\setup.py main --network fl-local 
+`brownie run .\scripts\setup.py main --network fl-local` 
 #### setup after first time
-brownie run .\scripts\setup.py --network fl-local
+`brownie run .\scripts\setup.py --network fl-local`
 
 ## Running
 This is just a simulation. For concurruncy problems on training on the same gpu, the collaborator.py script contains a loop that trains the
 different hospital model instances one at time in sequence. In a real time scenario with more than one peer it is possible to run 
 the different learnings at the same time and it works in the same way.
 ### run collaborator
-brownie run .\scripts\collaborator.py --network fl-local
+`brownie run .\scripts\collaborator.py --network fl-local`
 
 ### run federated_learning
 #### another shell
-brownie run .\scripts\federated_learning.py --network fl-local
-
-
-
+`brownie run .\scripts\federated_learning.py --network fl-local`
