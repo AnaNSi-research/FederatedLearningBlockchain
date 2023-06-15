@@ -82,4 +82,4 @@ the different learnings at the same time and it works in the same way.
 
 ### run federated_learning
 #### another shell
-`brownie run .\scripts\federated_learning.py --network fl-local`
+`brownie run .\scripts\manager.py --network fl-local`
