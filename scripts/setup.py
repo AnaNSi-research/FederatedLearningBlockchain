@@ -1,74 +1,88 @@
 import os
 import sys
 
-# Get the directory containing this script
+# Get the directory containing this script and add it to the sys.path
 dir_path = os.path.dirname(os.path.realpath(__file__))
-# Add the directory to sys.path
 sys.path.insert(0, dir_path)
 
+from utils_simulation import createHospitals, set_hospitals, get_hospitals, print_line
+
 from brownie import FederatedLearning, accounts
-from helpful_scripts import get_account
-import fl_deploy
+import deploy_FL
 
-from utils_simulation import createHospitals, set_hospitals, get_hospitals
 
-# if it is the first run, write "main" after "scripts/setup.py" in CLI
+# with this CLI argument choose to retrieve or to create the hospitals information
 isCreated = True
 if "main" in sys.argv:
     isCreated = False
 
+
 def main():
     """
-    Hospitals creation
+    1)  Hospitals creation
     """
     hospitals = None
     if isCreated:
         hospitals = get_hospitals()
     else:
         hospitals = createHospitals()
+    print("[1]\tHospitals have been created")
+    print_line("*")
 
     """
-    KYC Process and Off-Chain Hospitals Registration
+    2)  KYC Process and Off-Chain Hospitals Registration
+        - This must be done before the blockchain
     """
-
-
-    """
-    Blockchain implementation
-    """
-    fl_deploy.deploy_federated_learning()
+    print("[2]\tKYC Process and Off-Chain Hospitals Registration completed")
+    print_line("*")
 
     """
-    Assign blockchain addresses to Hospitals
+    3)  Blockchain implementation
     """
-    # only with fl-local network
+    deploy_FL.deploy_federated_learning()
+    print("[3]\tFederatedLearning contract has been deployed - Blockchain implemented")
+    print_line("*")
+
+    """
+    4)  Assign Blockchain addresses to Hospitals
+    """
+    # only with Ganache fl-local network
     for idx, hospital_name in enumerate(hospitals, start=1):
         hospitals[hospital_name].address = accounts[idx].address
-        print(idx, hospitals[hospital_name].address)
+        print(
+            "Hospital name:",
+            hospital_name,
+            "\tGanache address:",
+            hospitals[hospital_name].address,
+            "\tGanache idx:",
+            idx,
+        )
+    print("[4]\tAssigned Ganache addresses to the hospitals")
+    print_line("*")
 
-    for hospital in hospitals:
-        print(hospital)
-    
     """
-    Opening the Blockchain and Adding the Collaborators
+    5)  Opening the Blockchain and adding the Collaborators
     """
     federated_learning = FederatedLearning[-1]
-    manager = get_account()
+    manager = deploy_FL.get_account()
+    print("Manager address:", manager)
 
-    # print(federated_learning.get_state())
     open_tx = federated_learning.open({"from": manager})
     open_tx.wait(1)
     print(open_tx.events)
-    # print(federated_learning.get_state())
-   
 
     for hospital_name in hospitals:
         hospital_address = hospitals[hospital_name].address
-        add_tx = federated_learning.add_collaborator(hospital_address, {"from": manager})
+        add_tx = federated_learning.add_collaborator(
+            hospital_address, {"from": manager}
+        )
         add_tx.wait(1)
         print(add_tx.events)
-    
+    print("[5]\tBlockchain opened and collaborators authorized to ues it")
+    print_line("*")
+
     if not isCreated:
-        # Print all information of each Hospital object in the dictionary
+        # print all information of each Hospital object in the dictionary
         for key, hospital in hospitals.items():
             print(f"Key: {key}")
             hospital_info = vars(hospital)
@@ -76,7 +90,9 @@ def main():
                 print(f"{attr}: {value}")
             print()
 
+        # set the Hospital file
         set_hospitals(hospitals)
+
 
 if __name__ == "__main__":
     main()

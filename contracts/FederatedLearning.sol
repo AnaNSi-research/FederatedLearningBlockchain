@@ -15,28 +15,24 @@ contract FederatedLearning is Ownable {
         OPEN,
         START,
         LEARNING
-        //ABORT
     }
     FL_STATE public fl_state;
     address[] public collaborators;
     bytes public model;
     bytes public compile_info;
     bytes public aggregated_weights;
-    bytes[] public weights;
+    mapping(address => bytes) public weights;
+    uint256 public weights_len;
 
-    mapping(address => mapping(string => bool)) public hasCalledFunction; // only once
-    mapping(string => uint) public everyoneHasCalled; // for all
+    mapping(address => mapping(string => bool)) public hasCalledFunction;
+    mapping(string => uint) public everyoneHasCalled;
 
-    //event ChangeState(string old_state, string new_state);
     event StartState();
     event LearningState();
     event CloseState();
-    event EveryCollaboratorhasCalledOnlyOnce(string functionName);
+    event EveryCollaboratorHasCalledOnlyOnce(string functionName);
     event AggregatedWeightsReady();
 
-    // if you're following along with the freecodecamp video
-    // Please see https://github.com/PatrickAlphaC/fund_me
-    // to get the starting solidity contract code, it'll be slightly different than this!
     constructor() public {
         fl_state = FL_STATE.CLOSE;
     }
@@ -47,12 +43,15 @@ contract FederatedLearning is Ownable {
     }
 
     modifier everyCollaboratorHasCalledOnce(string memory functionName) {
-        require(!hasCalledFunction[msg.sender][functionName], "This function can only be called only once per collaborator");
+        require(
+            !hasCalledFunction[msg.sender][functionName],
+            "This function can only be called only once per collaborator"
+        );
         hasCalledFunction[msg.sender][functionName] = true;
 
         everyoneHasCalled[functionName]++;
-        if(everyoneHasCalled[functionName] == collaborators.length) {
-            emit EveryCollaboratorhasCalledOnlyOnce(functionName);
+        if (everyoneHasCalled[functionName] == collaborators.length) {
+            emit EveryCollaboratorHasCalledOnlyOnce(functionName);
         }
 
         _;
@@ -73,7 +72,6 @@ contract FederatedLearning is Ownable {
     function open() public onlyOwner {
         require(fl_state == FL_STATE.CLOSE);
         fl_state = FL_STATE.OPEN;
-        // emit ChangeState("CLOSE", get_state());
     }
 
     function add_collaborator(address _collaborator) public onlyOwner {
@@ -94,16 +92,25 @@ contract FederatedLearning is Ownable {
     function start() public onlyOwner {
         require(fl_state == FL_STATE.OPEN);
         fl_state = FL_STATE.START;
-        //emit ChangeState("OPEN", get_state());
         emit StartState();
     }
 
-    function retrieve_model() public onlyAuthorized everyCollaboratorHasCalledOnce("retrieve_model") returns (bytes memory){
+    function retrieve_model()
+        public
+        onlyAuthorized
+        everyCollaboratorHasCalledOnce("retrieve_model")
+        returns (bytes memory)
+    {
         require(fl_state == FL_STATE.START);
         return model;
     }
 
-    function retrieve_compile_info() public onlyAuthorized everyCollaboratorHasCalledOnce("retrieve_compile_info") returns (bytes memory) {
+    function retrieve_compile_info()
+        public
+        onlyAuthorized
+        everyCollaboratorHasCalledOnce("retrieve_compile_info")
+        returns (bytes memory)
+    {
         require(fl_state == FL_STATE.START);
         return compile_info;
     }
@@ -111,22 +118,26 @@ contract FederatedLearning is Ownable {
     function learning() public onlyOwner {
         require(fl_state == FL_STATE.START);
         fl_state = FL_STATE.LEARNING;
-        //emit ChangeState("START", get_state());
         emit LearningState();
     }
 
-    function send_weights(bytes memory _weights) public onlyAuthorized everyCollaboratorHasCalledOnce("send_weights"){
+    function send_weights(
+        bytes memory _weights
+    ) public onlyAuthorized everyCollaboratorHasCalledOnce("send_weights") {
         require(fl_state == FL_STATE.LEARNING);
-        require(weights.length <= collaborators.length);
-        weights.push(_weights);
+        weights_len++;
+        require(weights_len <= collaborators.length);
+        weights[msg.sender] = _weights;
     }
 
-    function retrieve_weights() public view onlyOwner returns (bytes[] memory){
+    function retrieve_weights(
+        address _collaborator
+    ) public view onlyOwner returns (bytes memory) {
         require(fl_state == FL_STATE.LEARNING);
-        return weights;
+        return weights[_collaborator];
     }
 
-    function reset_send_weights() public onlyOwner {
+    function reset_weights() public onlyOwner {
         for (uint256 i = 0; i < collaborators.length; i++) {
             address collaborator = collaborators[i];
             delete hasCalledFunction[collaborator]["send_weights"];
@@ -137,31 +148,38 @@ contract FederatedLearning is Ownable {
     function send_aggregated_weights(bytes memory _weights) public onlyOwner {
         require(fl_state == FL_STATE.LEARNING);
         aggregated_weights = _weights;
-        delete weights;
+        weights_len = 0;
+
+        for (uint256 i = 0; i < collaborators.length; i++) {
+            delete weights[collaborators[i]];
+        }
 
         emit AggregatedWeightsReady();
     }
 
-    function retrieve_aggregated_weights() public onlyAuthorized everyCollaboratorHasCalledOnce("retrieve_aggregated_weights") returns (bytes memory) {
+    function retrieve_aggregated_weights()
+        public
+        onlyAuthorized
+        returns (bytes memory)
+    {
         require(fl_state == FL_STATE.LEARNING);
         return aggregated_weights;
     }
 
-    function reset_retrieve_aggregated_weights() public onlyOwner {
+    function reset_aggregated_weights() public onlyOwner {
         for (uint256 i = 0; i < collaborators.length; i++) {
             address collaborator = collaborators[i];
-            delete hasCalledFunction[collaborator]["retrieve_aggregated_weights"];
+            delete hasCalledFunction[collaborator][
+                "retrieve_aggregated_weights"
+            ];
         }
         delete everyoneHasCalled["retrieve_aggregated_weights"];
     }
 
     function close() public onlyOwner {
-        //require(fl_state == FL_STATE.LEARNING);
         fl_state = FL_STATE.CLOSE;
-        //emit ChangeState("LEARNING", get_state());
         emit CloseState();
     }
-
 
     function get_state() public view returns (string memory) {
         if (fl_state == FL_STATE.CLOSE) return "CLOSE";
@@ -171,24 +189,29 @@ contract FederatedLearning is Ownable {
         return "No State";
     }
 
-
     function get_collaborators() public view returns (address[] memory) {
         return collaborators;
     }
 
-    function get_model() public onlyAuthorized view returns (bytes memory) {
+    function get_model() public view onlyAuthorized returns (bytes memory) {
         return model;
     }
 
-    function get_compile_info() public onlyAuthorized view returns (bytes memory) {
+    function get_compile_info()
+        public
+        view
+        onlyAuthorized
+        returns (bytes memory)
+    {
         return compile_info;
     }
 
-    function get_aggregated_weights() public onlyAuthorized view returns (bytes memory) {
+    function get_aggregated_weights()
+        public
+        view
+        onlyAuthorized
+        returns (bytes memory)
+    {
         return aggregated_weights;
-    }
-
-    function get_weights() public view onlyAuthorized returns (bytes[] memory) {
-        return weights;
     }
 }

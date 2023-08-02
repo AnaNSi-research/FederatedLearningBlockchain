@@ -1,21 +1,36 @@
-import numpy as np
-import sys
 import os
+import sys
 import cv2
-
-HOSPITALS_FILE = "/home/imbo/Unibo/Blockchain/fl_project/off_chain/hospitals.pkl"
-DATASET_PATH = "/home/imbo/Unibo/Blockchain/Database/Alzheimer_s Dataset Classes/"
-DATASET_LIMIT = None
-TEST_VAL_SPLIT = 0.30
-RANDOM_SEED = 42
-HOSPITAL_SPLIT = {"Alpha": 0.5, "Beta": 0.3, "Gamma": 0.2}
-# HOSPITAL_SPLIT = {"Alpha": 0.33, "Beta": 0.33, "Gamma": 0.34}
-
+import pickle
+import random
 import numpy as np
 import pandas as pd
-import pickle
+import tensorflow as tf
 from classHospital import Hospital
 from sklearn.model_selection import train_test_split
+
+RANDOM_SEED = 42
+
+HOSPITALS_FILE_PATH = (
+    "D:/Documents/Blockchain_project/fl_project/off_chain/hospitals.pkl"
+)
+DATASET_PATH = "D:/Documents/Blockchain_project/Database/"
+DATASET_LIMIT = None
+
+LABELS = ["NonDemented", "VeryMildDemented", "MildDemented", "ModerateDemented"]
+HOSPITAL_SPLIT = {"Alpha": 0.5, "Beta": 0.3, "Gamma": 0.2}
+TRAIN_TEST_SPLIT = 0.30
+PIN_BOOL = True
+
+
+def set_reproducibility(seed=RANDOM_SEED):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    os.environ["TF_DETERMINISTIC_OPS"] = "1"
+    os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
+    tf.keras.utils.set_random_seed(seed)
 
 
 def create_dataset(img_folder):
@@ -45,19 +60,22 @@ def create_dataset(img_folder):
                 class_name.append(dir1)
     return img_data_array, class_name
 
+
 def createHospitals():
     hospitals = {}
 
     # extract the image array and class name
     img_data, class_name = create_dataset(DATASET_PATH)
 
-    # target_dict = {k: v for v, k in enumerate(np.unique(class_name))}
+    """
     target_dict = {
         "NonDemented": 0,
         "VeryMildDemented": 1,
         "MildDemented": 2,
         "ModerateDemented": 3,
     }
+    """
+    target_dict = {label: index for index, label in enumerate(LABELS)}
 
     target_val = [target_dict[class_name[i]] for i in range(len(class_name))]
 
@@ -69,34 +87,18 @@ def createHospitals():
     for hospital_name in HOSPITAL_SPLIT:
         values_list += [hospital_name] * int(rows * HOSPITAL_SPLIT[hospital_name])
 
-    print(type(X))
-    print(type(X[0]))
-    print(X.shape)
-
     indices = np.arange(X.shape[0])
     np.random.shuffle(indices)
     X = X[indices]
     y = y[indices]
 
-
-    print(type(X))
-    print(type(X[0]))
-    print(X.shape)
-
     df = pd.DataFrame({"X": list(X), "y": list(y)})
     if df.shape[0] != len(values_list):
         values_list.append("Gamma")
-    print(values_list)
     df["hospital"] = values_list
     # df['hospital'] = df['hospital'].map(hospitals)
 
-    for hospital_name in HOSPITAL_SPLIT:
-        print(hospital_name)
-    print(HOSPITAL_SPLIT.keys())
-    print(list(HOSPITAL_SPLIT.keys()))
-
     dataset = dict.fromkeys(list(HOSPITAL_SPLIT.keys()))
-    print(dataset)
 
     for hospital_name in HOSPITAL_SPLIT:
         X_h = df[df["hospital"] == hospital_name]["X"].to_numpy()
@@ -107,22 +109,35 @@ def createHospitals():
 
         dataset[hospital_name] = {}
 
+        """
         (
             dataset[hospital_name]["X_train"],
             X_test,
             dataset[hospital_name]["y_train"],
             y_test,
-        ) = train_test_split(X_h, y_h, test_size=TEST_VAL_SPLIT, random_state=RANDOM_SEED)
+        ) = train_test_split(
+            X_h, y_h, test_size=TRAIN_TEST_SPLIT, random_state=RANDOM_SEED
+        )
+        """
+        (X_train, X_test, y_train, y_test,) = train_test_split(
+            X_h, y_h, test_size=TRAIN_TEST_SPLIT, random_state=RANDOM_SEED
+        )
+
         (
-            dataset[hospital_name]["X_test"],
-            dataset[hospital_name]["X_val"],
-            dataset[hospital_name]["y_test"],
-            dataset[hospital_name]["y_val"],
+            X_test,
+            X_val,
+            y_test,
+            y_val,
         ) = train_test_split(X_test, y_test, test_size=0.5, random_state=RANDOM_SEED)
 
-        hospitals[hospital_name] = Hospital(
-            hospital_name, dataset[hospital_name]
-        )
+        dataset[hospital_name]["X_train"] = X_train
+        dataset[hospital_name]["y_train"] = tf.one_hot(y_train, depth=len(LABELS))
+        dataset[hospital_name]["X_test"] = X_test
+        dataset[hospital_name]["y_test"] = tf.one_hot(y_test, depth=len(LABELS))
+        dataset[hospital_name]["X_val"] = X_val
+        dataset[hospital_name]["y_val"] = tf.one_hot(y_val, depth=len(LABELS))
+
+        hospitals[hospital_name] = Hospital(hospital_name, dataset[hospital_name])
 
     """
     hospital_Alpha = Hospital("Alpha", dataset_Alpha)
@@ -130,61 +145,83 @@ def createHospitals():
     hospital_Gamma = Hospital("Gamma", dataset_Gamma)
     """
 
-    print(X_test.shape)
-    print(y_test.shape)
-
-    # test
-
-    for h in hospitals:
-        for n in hospitals[h].dataset:
-            print(
-                h,
-                n,
-                hospitals[h].dataset[n].shape,
-                type(hospitals[h].dataset[n]),
-                hospitals[h].dataset[n][0].shape,
-                type(hospitals[h].dataset[n][0]),
-            )
-
     return hospitals
+
 
 def get_hospitals():
     hospitals = {}
-    with open(HOSPITALS_FILE, "rb") as file:
+    with open(HOSPITALS_FILE_PATH, "rb") as file:
         hospitals = pickle.load(file)
     return hospitals
 
+
 def set_hospitals(hospitals):
     serialized_hospitals = pickle.dumps(hospitals)
-    with open(HOSPITALS_FILE, "wb") as file:
+    with open(HOSPITALS_FILE_PATH, "wb") as file:
         file.write(serialized_hospitals)
+
 
 def get_X_test():
     hospitals = get_hospitals()
+
     X_test = None
     try:
         X_test = np.concatenate(
-            [hospital.dataset["X_test"] for hospital in hospitals], axis=0
+            [
+                hospitals[hospital_name].dataset["X_test"]
+                for hospital_name in HOSPITAL_SPLIT
+            ],
+            axis=0,
         )
     except ValueError as e:
-        print("ERROR --> catch at:", __name__, "on file:", __file__, "\nException:", str(e))
-    if not X_test:
-        raise Exception("ERROR --> catch at:", __name__, "on file:", __file__, "\nException: X_test is empty")
+        print(
+            "ERROR --> catch at:",
+            __name__,
+            "on file:",
+            __file__,
+            "\nException:",
+            str(e),
+        )
+    if X_test is None:
+        raise Exception(
+            "ERROR --> catch at:",
+            __name__,
+            "on file:",
+            __file__,
+            "\nException: X_test is empty",
+        )
     return X_test
-        
+
+
 def get_y_test():
     hospitals = get_hospitals()
     y_test = None
     try:
         y_test = np.concatenate(
-            [hospital.dataset["y_test"] for hospital in hospitals], axis=0
+            [
+                hospitals[hospital_name].dataset["y_test"]
+                for hospital_name in HOSPITAL_SPLIT
+            ],
+            axis=0,
         )
     except ValueError as e:
-        print("ERROR --> catch at:", __name__, "on file:", __file__, "\nException:", str(e))
-    if not y_test:
-        raise Exception("ERROR --> catch at:", __name__, "on file:", __file__, "\nException: y_test is empty")
+        print(
+            "ERROR --> catch at:",
+            __name__,
+            "on file:",
+            __file__,
+            "\nException:",
+            str(e),
+        )
+    if y_test is None:
+        raise Exception(
+            "ERROR --> catch at:",
+            __name__,
+            "on file:",
+            __file__,
+            "\nException: y_test is empty",
+        )
     return y_test
-
 
 
 def print_weights(weights):
@@ -199,7 +236,8 @@ def print_weights(weights):
         "weights TOTAL size:"
         + str(sys.getsizeof(weights) + sum(sys.getsizeof(w) for w in weights))
     )
-    print("---------------------------------------------")
+    print_line("-")
+
 
 def print_listed_weights(weights_listed):
     print(len(weights_listed))
@@ -216,4 +254,8 @@ def print_listed_weights(weights_listed):
             + sum(sys.getsizeof(w) for w in weights_listed)
         )
     )
+    print_line("-")
 
+
+def print_line(c):
+    print(c * 50, "\n")
