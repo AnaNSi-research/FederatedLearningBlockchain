@@ -20,9 +20,5 @@ networks:
     verify: False
   fl-local:
     verify: False
-  big-fl-local:
-    verify: False
-  gabri:
-    verify: False
 wallets:
   from_key: ${PRIVATE_KEY}
