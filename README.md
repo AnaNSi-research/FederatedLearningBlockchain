@@ -6,6 +6,7 @@ This is tje result of a student project for the course on Blockchain and Cryptoc
 Authors:
 * G. Cialone
 * F. Imboccioli
+
 original project link: https://github.com/Imbo9/fl_blockchain
 
 ## Abstract
