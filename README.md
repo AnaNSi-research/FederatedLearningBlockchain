@@ -1,4 +1,13 @@
 # Federated Learning on Blockchain with Hospital Peers for Alzheimer's MRI Image Classification
+
+## Note
+This is tje result of a student project for the course on Blockchain and Cryptocurrencies, master degree on Artificial Intelligence, University of Bologna, held by Prof. Stefano Ferretti.
+
+Authors:
+* G. Cialone
+* F. Imboccioli
+original project link: https://github.com/Imbo9/fl_blockchain
+
 ## Abstract
 
 This project focuses on the implementation of **federated learning** techniques within a **blockchain** framework to create a collaborative model for classifying MRI images of Alzheimer's patients. The primary objective is to enhance the model's performance by leveraging ensemble models in the weight space of neural networks rather than simply averaging the scores of different model instances.
